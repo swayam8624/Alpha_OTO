@@ -98,3 +98,16 @@ market data or place orders. `--once` is a safe smoke test.
    Never commit credentials, PII or trade secrets to this repository.
 
 See [architecture](docs/ARCHITECTURE.md), [cost/reinvestment plan](docs/COST_AND_GATES.md), and [TailHunter limitations](docs/TAILHUNTER.md).
+
+
+## Next milestone: actual public-market historical research (v0.3)
+
+The previous synthetic tournament returning `selected: null` is a correct,
+conservative outcome—not an exception. **Do not deploy the synthetic model.**
+The repository now includes an offline quality audit and source-provenance
+manifest to make the next real-data exercise inspectable.
+
+Follow [the Mac real-data walkthrough](docs/NEXT_REAL_DATA.md). No API key,
+subscription, or cloud LLM is required. The public Coinbase feed is for
+**research** and is NOT a statement that Coinbase trading is legally available
+to Indian residents or that this feed grants commercial training rights.

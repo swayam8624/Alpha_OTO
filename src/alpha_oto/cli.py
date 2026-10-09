@@ -12,6 +12,7 @@ from .reinvestment import ReinvestmentPlan
 from .strategies import Trend
 from .demo import synthetic_bars
 from .watch import watch
+from .audit import audit_bars
 from .model_store import build_artifact, save_artifact, load_artifact, score_unseen
 
 
@@ -30,6 +31,11 @@ def main(argv=None):
     get.add_argument("--days",type=int,default=14)
     get.add_argument("--granularity",type=int,default=3600)
     get.add_argument("--out",required=True)
+    audit = sub.add_parser("audit-data",help="Audit local candles for gaps and incomplete periods (read-only)")
+    audit.add_argument("--csv",required=True)
+    audit.add_argument("--interval-seconds",type=int,default=3600)
+    audit.add_argument("--session-market",action="store_true",help="Do not count closed sessions as missing 24/7 candles")
+    audit.add_argument("--out",default="artifacts/data_audit.json")
     train = sub.add_parser("train-local",help="Train and save provenance-checked local logistic ML")
     train.add_argument("--csv",required=True)
     train.add_argument("--out",default="artifacts/local_model.json")
@@ -66,17 +72,40 @@ def main(argv=None):
             p.error("--bars must be between 160 and 100000")
         write_csv(args.out,synthetic_bars(args.bars))
         print(f"Saved deterministic SYNTHETIC candles: {args.out}; NOT market evidence")
+    elif args.cmd == "audit-data":
+        result = audit_bars(read_csv(args.csv), interval_seconds=args.interval_seconds,
+                            continuous=not args.session_market, file_path=args.csv)
+        _save(args.out,result)
+        print(json.dumps(result,indent=2))
     elif args.cmd == "watch":
         watch(args.csv,interval_seconds=args.interval_seconds,out=args.out,
               once=args.once,max_age_hours=args.max_age_hours)
     elif args.cmd == "fetch-coinbase":
-        if args.days <= 0 or args.days > 90:
-            p.error("--days must be from 1 to 90 (bounded public API usage)")
-        end = datetime.now(timezone.utc)
+        # Permit longer research horizons while limiting public API volume.
+        limits = {60: 2, 300: 7, 900: 30, 3600: 365, 21600: 1095, 86400: 3650}
+        if args.granularity not in limits or not 1 <= args.days <= limits[args.granularity]:
+            p.error(f"Unsupported time range/granularity; maximum days by seconds: {limits}")
+        # Exclude the current unfinished candle (buckets are start-stamped).
+        seconds = int(datetime.now(timezone.utc).timestamp())
+        end = datetime.fromtimestamp(seconds-seconds % args.granularity,timezone.utc)
         start = end-timedelta(days=args.days)
         bars = coinbase_candles(args.product,start,end,args.granularity)
         write_csv(args.out,bars)
-        print(f"Downloaded {len(bars)} public candles for {args.product}; check source terms")
+        manifest = audit_bars(bars,interval_seconds=args.granularity,continuous=True,file_path=args.out)
+        manifest["requested_start"] = start.isoformat()
+        manifest["requested_end_exclusive"] = end.isoformat()
+        expected_count = int((end-start).total_seconds() // args.granularity)
+        manifest["requested_bars"] = expected_count
+        manifest["coverage_of_requested_window"] = round(len(bars)/expected_count,8)
+        if bars[0].timestamp > start or bars[-1].timestamp < end-timedelta(seconds=args.granularity):
+            manifest["issues"].append("REQUEST_WINDOW_EDGE_GAP")
+            manifest["quality_pass"] = False
+        manifest["source"] = "Coinbase Exchange public historical candles, research use only"
+        manifest["source_api"] = "https://api.exchange.coinbase.com/products/{product}/candles"
+        manifest["licence_note"] = "Review data retention/training/redistribution rights before use."
+        _save(args.out+".manifest.json",manifest)
+        print(f"Downloaded {len(bars)} completed public candles for {args.product}; check source terms")
+        print(f"Data audit: {'PASS' if manifest['quality_pass'] else 'CHECK ISSUES'}: {manifest['issues']}")
     elif args.cmd == "train-local":
         artifact=build_artifact(read_csv(args.csv))
         save_artifact(args.out,artifact)

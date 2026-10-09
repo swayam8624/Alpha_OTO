@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from urllib.parse import urlencode, quote
+from urllib.error import HTTPError
+from time import sleep
 from urllib.request import Request, urlopen
 
 UTC = timezone.utc
@@ -101,8 +103,17 @@ def coinbase_candles(product: str, start: datetime, end: datetime, granularity: 
         params = urlencode({"start": cursor.isoformat(), "end": nxt.isoformat(), "granularity": granularity})
         url = f"https://api.exchange.coinbase.com/products/{quote(product)}/candles?{params}"
         request = Request(url, headers={"User-Agent": "AlphaOTO-research/0.1", "Accept": "application/json"})
-        with urlopen(request, timeout=15) as reply:
-            rows = json.load(reply)
+        for attempt in range(4):
+            try:
+                with urlopen(request, timeout=15) as reply:
+                    rows = json.load(reply)
+                break
+            except HTTPError as exc:
+                if exc.code not in (429, 500, 502, 503, 504) or attempt == 3:
+                    raise
+                sleep(min(8, 0.5 * (2 ** attempt)))
+        # Avoid bursting historical requests into a public endpoint.
+        sleep(0.15)
         if not isinstance(rows, list):
             raise RuntimeError(f"Coinbase candle response error: {str(rows)[:250]}")
         for row in rows:
