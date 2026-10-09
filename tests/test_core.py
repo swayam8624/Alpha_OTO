@@ -15,6 +15,8 @@ from alpha_oto.strategies import Trend, feature_vector
 from alpha_oto.local_ai import summarize_locally
 from alpha_oto.demo import synthetic_bars
 from alpha_oto.watch import inspect_file, watch
+from alpha_oto.model_store import build_artifact, save_artifact, load_artifact, score_unseen
+from alpha_oto.registry import AgentRegistry
 
 
 def synthetic(n=240):
@@ -168,6 +170,33 @@ class AgentTests(unittest.TestCase):
     def test_synthetic_example_is_reproducible(self):
         self.assertEqual(synthetic_bars(165),synthetic_bars(165))
         self.assertEqual(synthetic_bars(165)[0].symbol,"SYNTHETIC-USD")
+
+    def test_model_save_load_and_unseen_gate(self):
+        bars=synthetic_bars(240)
+        artifact=build_artifact(bars)
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/"model.json"
+            save_artifact(p,artifact)
+            with self.assertRaises(FileExistsError):
+                save_artifact(p,artifact)
+            restored=load_artifact(p)
+            self.assertFalse(score_unseen(bars,restored)["trade_authorized"])
+            with self.assertRaises(ValueError):
+                score_unseen(bars[:restored["trained_candles"]],restored)
+
+    def test_local_agent_registry_never_promotes_to_live(self):
+        with tempfile.TemporaryDirectory() as d:
+            registry=AgentRegistry(Path(d)/"agents.sqlite")
+            try:
+                for k in range(3):
+                    registry.evaluate("momo",f"bt-{k}","BACKTEST",.04,.03,11)
+                self.assertFalse(registry.promote_shadow("momo"))
+                self.assertTrue(registry.promote_shadow("momo",human_review=True))
+                self.assertEqual(registry.stage("momo"),"SHADOW")
+                registry.evaluate("momo","forward-1","FORWARD",-.15,.16,20)
+                self.assertEqual(registry.stage("momo"),"QUARANTINED")
+            finally:
+                registry.close()
 
     def test_cloud_llm_forbidden(self):
         with self.assertRaises(ValueError):

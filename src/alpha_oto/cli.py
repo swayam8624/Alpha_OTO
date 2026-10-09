@@ -12,6 +12,7 @@ from .reinvestment import ReinvestmentPlan
 from .strategies import Trend
 from .demo import synthetic_bars
 from .watch import watch
+from .model_store import build_artifact, save_artifact, load_artifact, score_unseen
 
 
 def _save(path: str, payload: dict):
@@ -29,6 +30,12 @@ def main(argv=None):
     get.add_argument("--days",type=int,default=14)
     get.add_argument("--granularity",type=int,default=3600)
     get.add_argument("--out",required=True)
+    train = sub.add_parser("train-local",help="Train and save provenance-checked local logistic ML")
+    train.add_argument("--csv",required=True)
+    train.add_argument("--out",default="artifacts/local_model.json")
+    score = sub.add_parser("score-local",help="Score an unseen completed candle, no trade")
+    score.add_argument("--csv",required=True)
+    score.add_argument("--model",required=True)
     sim = sub.add_parser("simulate",help="Replay trend strategy on a local CSV")
     sim.add_argument("--csv",required=True)
     sim.add_argument("--out",default="artifacts/simulation.json")
@@ -70,6 +77,13 @@ def main(argv=None):
         bars = coinbase_candles(args.product,start,end,args.granularity)
         write_csv(args.out,bars)
         print(f"Downloaded {len(bars)} public candles for {args.product}; check source terms")
+    elif args.cmd == "train-local":
+        artifact=build_artifact(read_csv(args.csv))
+        save_artifact(args.out,artifact)
+        print(f"Saved locally trained, uncalibrated model: {args.out}")
+        print(json.dumps({k:v for k,v in artifact.items() if k!="model"},indent=2))
+    elif args.cmd == "score-local":
+        print(json.dumps(score_unseen(read_csv(args.csv),load_artifact(args.model)),indent=2))
     elif args.cmd == "simulate":
         bars = read_csv(args.csv)
         result = simulate(bars,Trend())

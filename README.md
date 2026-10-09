@@ -21,6 +21,8 @@ agents chronologically, and calculates a profit-funded infrastructure budget.
 | Chronological tournament | 60% training, 20% validation selection, 20% untouched report | Implemented, not proof of alpha |
 | Portfolio safeguards | Per-strategy position cap and drawdown halt | Simplified backtest only |
 | Local optional LLM | Explicit Ollama localhost report, **never** trade decisions | Implemented (optional) |
+| Provenance-checked local ML artifact | Immutable model JSON and training data SHA-256 | Implemented |
+| SQLite evolutionary experiment registry | Research/shadow/quarantine stages, no live stage | Implemented |
 | 24/7-capable local watcher | Read-only multi-file polling, stale-data guard, append-only journal | Implemented; runs only when user starts it |
 | Reinvestment policy | Only positive realized profit after cost/tax reserve, subject to cash floor | Implemented (planning only) |
 | Multi-venue live execution | Broker, exchange, orders, authentication | **Not built** |
@@ -37,6 +39,8 @@ python3 -m unittest discover -s tests -v
 # No data or network needed for a complete end-to-end software run:
 alpha-oto demo --out artifacts/SYNTHETIC_ohlcv.csv
 alpha-oto tournament --csv artifacts/SYNTHETIC_ohlcv.csv
+alpha-oto train-local --csv artifacts/SYNTHETIC_ohlcv.csv --out artifacts/SYNTHETIC_model.json
+alpha-oto score-local --csv artifacts/SYNTHETIC_ohlcv.csv --model artifacts/SYNTHETIC_model.json
 alpha-oto watch --csv artifacts/SYNTHETIC_ohlcv.csv --once
 
 # Or replay your own legally obtained point-in-time bars:

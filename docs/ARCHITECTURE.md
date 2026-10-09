@@ -30,7 +30,8 @@ RESEARCH -> VERIFIED_BACKTEST -> SHADOW -> HUMAN_APPROVED -> ACTIVE
                                   |
                                RETIRED
 
-The repo **only** implements research-level candidate selection. No agent is
+A local SQLite research registry supports RESEARCH, SHADOW, QUARANTINED and RETIRED stages.
+It cannot mark any agent LIVE. The repo **only** implements research-level candidate selection. No agent is
 eligible for active trading based on past backtests alone. An agent that loses
 three times in a row is not automatically invalid; evaluate the expected loss
 sequence, statistical uncertainty, costs and market regime first.
