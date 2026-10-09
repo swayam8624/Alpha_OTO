@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alpha-oto"
+version = "0.1.0"
+description = "Local-first, no-live-orders multi-market quant research and agent evaluation"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+alpha-oto = "alpha_oto.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
