@@ -69,8 +69,12 @@ alpha-oto repair-coinbase --csv private_data/ETH-USD_1h.csv
 ```
 
 The repaired outputs have `_repaired.csv` suffix and a companion `.repair.json`
-quality report. If missing candles are still unavailable from the provider,
-**do not invent them**. The ML lab works on the unfilled original as described.
+quality report. The report contains `repair_status`, `recovered_intervals`,
+`unresolved_intervals`, and exact unresolved UTC timestamps. An empty Coinbase
+response is recorded as an unresolved gap instead of crashing. Actual API
+errors or conflicting historical prices still fail rather than silently masking
+problems. If missing candles are unavailable from the provider, **do not invent
+them**. The ML lab excludes impacted windows from either CSV.
 
 To use enhanced repaired datasets, explicitly run the next section with the
 repaired path instead of the original path, and note this as a new research

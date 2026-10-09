@@ -115,3 +115,13 @@ ALPHA_MODELS=logistic,histgb,forest,lightgbm,xgboost bash scripts/run_crypto_res
 held-out validation, cost-aware simulated trades, serialized local models,
 manifest checksums and independent buy/hold comparisons. No live orders,
 no guaranteed performance and no cloud AI usage.
+
+## Coinbase missing-candle repairs (research only)
+
+After downloading Coinbase history, use `alpha-oto repair-coinbase --csv
+private_data/BTC-USD_1h.csv` to request missing time windows. The original CSV
+is preserved. The new `_repaired.csv` and `.repair.json` explicitly distinguish
+`recovered_intervals` from `unresolved_intervals`. An empty Coinbase reply
+means the specific gap remains **missing**; it is not proof of a flat price or
+zero volume. Model windows spanning those gaps remain excluded. If the historical
+holdout has already been reviewed, do not reuse that period for new model tuning.

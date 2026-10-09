@@ -81,7 +81,8 @@ def write_csv(path: str | Path, bars: list[Bar]) -> None:
             writer.writerow((b.timestamp.isoformat(), b.symbol, b.open, b.high, b.low, b.close, b.volume))
 
 
-def coinbase_candles(product: str, start: datetime, end: datetime, granularity: int = 3600) -> list[Bar]:
+def coinbase_candles(product: str, start: datetime, end: datetime, granularity: int = 3600,
+                     *, allow_empty: bool = False) -> list[Bar]:
     """Fetch Coinbase Exchange public historical candles (at most 300 intervals/request).
 
     Access is read-only. Check the current endpoint terms before retaining or
@@ -124,4 +125,10 @@ def coinbase_candles(product: str, start: datetime, end: datetime, granularity: 
             if start <= ts < end:
                 by_ts[ts] = Bar(ts, product, float(opn), float(high), float(low), float(close), float(vol))
         cursor = nxt
-    return validate_series([by_ts[k] for k in sorted(by_ts)])
+    result = [by_ts[k] for k in sorted(by_ts)]
+    # Sparse/exchange-unavailable candle windows can legitimately be empty.
+    # A bulk history download still fails on an entirely empty response, but
+    # the explicit gap-repair caller may request [] and record unresolved gaps.
+    if not result and allow_empty:
+        return []
+    return validate_series(result)
