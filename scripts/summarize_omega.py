@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 root=Path(sys.argv[1] if len(sys.argv)>1 else 'artifacts/omega')
-for file in (root/'quant_tournament.json',root/'cross_ml'/'cross_asset_research.json',root/'stress.json',root/'pairs_research.json'):
+for file in (root/'quant_tournament.json',root/'cross_ml'/'cross_asset_research.json',root/'stress.json',root/'pairs_research.json',root/'shadow_swarm.json'):
     if not file.exists():
         print('Not available:',file);continue
     d=json.loads(file.read_text())
@@ -24,6 +24,11 @@ for file in (root/'quant_tournament.json',root/'cross_ml'/'cross_asset_research.
             print(a['model'],a['horizon'],a['min_edge'],'score',round(a['score'],5),
                   'positive folds',a['positive_excess_folds'],'fills',a['validation_fills'])
         print('Holdout:', d['holdout'])
+    if 'selected_eta' in d:
+        print('Selected online swarm eta:',d['selected_eta'])
+        print('Holdout summary:', d['holdout'] and {
+              'excess_return':d['holdout']['excess_return'],
+              'quarantined':d['holdout']['swarm']['quarantined']})
     if 'hedge' in d:
         print('Cointegration verified:',d['hedge']['cointegration_verified'])
         print('Selected segment:',d.get('selected_segment'))

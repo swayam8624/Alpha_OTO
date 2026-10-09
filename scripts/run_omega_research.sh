@@ -27,6 +27,10 @@ python -m alpha_oto cross-ml \
   --models "${OMEGA_MODELS:-ridge,histgb}" \
   --horizons "${OMEGA_HORIZONS:-4,12}" \
   --out artifacts/omega/cross_ml
+# Online expert weighting is shadow-only and cannot issue orders.
+python -m alpha_oto shadow-swarm \
+  --csv "${files[0]}" --csv "${files[1]}" \
+  --out artifacts/omega/shadow_swarm.json
 # Spread hypotheses contain hypothetical short legs and are NEVER live-eligible.
 python -m alpha_oto pairs-research \
   --csv "${files[0]}" --csv "${files[1]}" \

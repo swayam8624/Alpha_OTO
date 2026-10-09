@@ -112,3 +112,34 @@ Output folder `artifacts/omega/` contains `quant_tournament.json`, `stress.json`
 The simulator still needs live bid/ask archives, instrument lot sizing, point-in-time survivorship-free stock universes, exchange calendars, sector controls, separate cash pools for jurisdictions, permissions, tax-ledger accounting, actual latency, order reconciliation, infrastructure redundancy and regulatory clearance. A working model does not justify spending trading capital. Hardware reinvestment remains a manual decision based on **verified realized post-tax profits**, never paper P&L.
 
 **Reproducibility checks:** `PYTHONPATH=src python -m unittest discover -s tests -v`; CI runs the same test suite with free local dependencies. A passing test suite establishes specified software invariants, not market edge.
+
+## 9. Adaptive shadow committee (online learning, not live orders)
+
+The `shadow-swarm` command executes an additional independent experiment using
+nine expert strategies. At each scheduled rebalance, expert votes are computed
+from **completed** bar data only. The committee updates log weights from the
+previous vote's subsequent observed close-to-close proxy gain, subtracting a
+predeclared turnover-change friction penalty. A tempered exponential-weights
+rule updates how much confidence each expert receives; repeated sufficiently
+negative cumulative evidence can quarantine an expert. Frozen feeds prevent
+updates entirely, and chronological reversals are rejected. Quarantined experts
+may rehabilitate after improved observed proxy evidence, but no amount of
+online proxy utility grants live trading authority.
+
+`shadow-swarm` compares a fixed learning-rate grid of 0.5, 2 and 6 across
+three disjoint validation windows, uses the same cost-aware portfolio ledger
+and equal-weight reference, and evaluates the last 20% only when a validation
+candidate passes strict shadow criteria. The committee's proxy rewards are
+*not broker profit and not account NAV*: only its separate portfolio replay
+contains estimated fills, fees and marked cash. Repeatedly adjusting committee
+rules after seeing the same holdout is invalid as a confirmation procedure.
+
+```bash
+alpha-oto shadow-swarm --csv private_data/BTC-USD_1h.csv \
+  --csv private_data/ETH-USD_1h.csv \
+  --out artifacts/omega/shadow_swarm.json
+```
+
+The full `scripts/run_omega_research.sh` includes this command. It does NOT
+call Ollama or any cloud inference. This is a cost-aware **research comparator**,
+not proof that adaptive selection beats a simple buy-and-hold allocation.

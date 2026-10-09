@@ -22,6 +22,7 @@ from .quant_validation import research_portfolio
 from .quant_stress import stress_test
 from .cross_asset_ml import research_cross_asset
 from .pairs_lab import pairs_research
+from .shadow_swarm import swarm_research
 
 
 def _save(path: str, payload: dict):
@@ -115,6 +116,9 @@ def main(argv=None):
     pairs.add_argument("--out",default="artifacts/omega/pairs_research.json")
     pairs.add_argument("--longest-contiguous-segment",action="store_true",
                        help="Explicitly exclude gapped ranges and use the longest complete overlap")
+    swarm=sub.add_parser("shadow-swarm",help="Online-learning quant ensemble, research only")
+    swarm.add_argument("--csv",action="append",required=True)
+    swarm.add_argument("--out",default="artifacts/omega/shadow_swarm.json")
     args = p.parse_args(argv)
     if args.cmd == "quant-portfolio":
         agent=QuantAgent(args.agent,args.fast,args.slow)
@@ -125,6 +129,10 @@ def main(argv=None):
         result=research_portfolio(args.csv,args.out)
         print(json.dumps({"selected":result["chosen_shadow_agent"],"holdout":result["holdout"],
                           "report":args.out},indent=2))
+    elif args.cmd == "shadow-swarm":
+        result=swarm_research(args.csv,args.out)
+        print(json.dumps({"selected_shadow_eta":result["selected_eta"],
+                          "holdout":result["holdout"],"report":args.out},indent=2))
     elif args.cmd == "pairs-research":
         result=pairs_research(args.csv,args.out,
                               longest_contiguous_segment=args.longest_contiguous_segment)

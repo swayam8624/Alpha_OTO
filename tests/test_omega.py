@@ -343,3 +343,59 @@ class RegimeTests(unittest.TestCase):
             x=future[i]
             future[i]=Bar(x.timestamp,x.symbol,1e6,1e6+1,1e6-1,1e6,1)
         self.assertEqual(one,regime_multiplier({'BTC-USD':future[:240]}))
+
+class SwarmTests(unittest.TestCase):
+    def setUp(self):
+        self.u={'BTC-USD':candles('BTC-USD',960),
+                'ETH-USD':candles('ETH-USD',960,drift=.0004)}
+
+    def test_swarm_cannot_use_future_price_to_update(self):
+        from alpha_oto.shadow_swarm import AdaptiveCommittee
+        swarm=AdaptiveCommittee()
+        b={s:rows[:200] for s,rows in self.u.items()}
+        first=swarm.scores_universe(b)
+        revised={s:rows[:240] for s,rows in self.u.items()}
+        for s in revised:
+            for i in range(220,230):
+                x=revised[s][i]
+                revised[s][i]=Bar(x.timestamp,x.symbol,10e6,10e6+1,10e6-1,10e6,100)
+        control=AdaptiveCommittee()
+        self.assertEqual(first,control.scores_universe({s:rows[:200] for s,rows in revised.items()}))
+
+    def test_swarm_refuses_reversed_clock(self):
+        from alpha_oto.shadow_swarm import AdaptiveCommittee
+        agent=AdaptiveCommittee()
+        hist={s:rows[:200] for s,rows in self.u.items()}
+        agent.scores_universe(hist)
+        with self.assertRaisesRegex(ValueError,'advance'):
+            agent.scores_universe(hist)
+
+    def test_swarm_online_weights_sum_to_one(self):
+        from alpha_oto.shadow_swarm import AdaptiveCommittee
+        agent=AdaptiveCommittee()
+        for n in range(185,900,24):
+            agent.scores_universe({s:rows[:n] for s,rows in self.u.items()})
+        self.assertAlmostEqual(sum(agent.last_weights),1.0)
+        self.assertGreater(agent.updates,10)
+        self.assertTrue(all(0<=x<=1 for x in agent.last_weights))
+
+    def test_swarm_gap_blocks_updates(self):
+        from alpha_oto.shadow_swarm import AdaptiveCommittee
+        agent=AdaptiveCommittee()
+        agent.scores_universe({s:rows[:200] for s,rows in self.u.items()})
+        before=agent.updates
+        result=agent.scores_universe({'BTC-USD':self.u['BTC-USD'][:230],
+                                       'ETH-USD':[]})
+        self.assertEqual(agent.updates,before)
+        self.assertEqual(result,{'BTC-USD':0.0,'ETH-USD':0.0})
+
+    def test_shadow_swarm_does_not_live_promote(self):
+        from alpha_oto.shadow_swarm import swarm_research
+        with tempfile.TemporaryDirectory() as t:
+            paths=[]
+            for s,rows in self.u.items():
+                p=Path(t)/(s+'.csv');write_csv(p,rows);paths.append(str(p))
+            report=swarm_research(paths,Path(t)/'shadow.json',etas=(.5,2.))
+            self.assertEqual(report['status'],'SHADOW_LEARNING_ONLY_NO_LIVE_ORDERS')
+            self.assertEqual(len(report['candidates']),2)
+            self.assertTrue((Path(t)/'shadow.json').exists())

@@ -149,3 +149,13 @@ endpoint only when absent, and runs the local test/research suite. Missing
 candles are never filled; data with gaps is excluded from affected feature
 windows or explicitly segmented for the theoretical pairs experiment. A
 successful run **does not imply a profitable strategy** or authorize trading.
+
+### Research-only adaptive shadow swarm
+
+The **Omega online-learning committee** is now available via
+`alpha-oto shadow-swarm --csv private_data/BTC-USD_1h.csv --csv private_data/ETH-USD_1h.csv`.
+It weights nine fixed quant experts from prior completed observations, subtracts
+proxy-turnover friction, quarantines persistently poor shadow experts and
+tracks adaptation across chronological partitions. It has **no ability** to
+execute orders or allocate real money. See
+[Omega documentation](docs/OMEGA_QUANT_ENGINE.md#9-adaptive-shadow-committee-online-learning-not-live-orders).
