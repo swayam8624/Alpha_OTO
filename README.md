@@ -125,3 +125,27 @@ is preserved. The new `_repaired.csv` and `.repair.json` explicitly distinguish
 means the specific gap remains **missing**; it is not proof of a flat price or
 zero volume. Model windows spanning those gaps remain excluded. If the historical
 holdout has already been reviewed, do not reuse that period for new model tuning.
+
+
+## Omega quantitative engine v0.4 (offline, multi-market research)
+
+The [Omega quantitative research guide](docs/OMEGA_QUANT_ENGINE.md) documents
+nine fixed quant configurations, covariance risk budgeting, volatility-regime
+throttling, a multi-asset next-open ledger, purged pooled cross-market ML,
+walk-forward shadow evaluation, fee/liquidity stress tests and a **non-executable**
+pairs diagnostics lab. Same-quote-currency, 24/7 markets only; Indian equities,
+overnight shorting, options, multi-currency settlement and live execution are not
+implemented by Omega's portfolio engine.
+
+From the repository root in your local Python environment:
+
+```bash
+bash scripts/run_omega_research.sh
+```
+
+The script reuses existing `private_data/BTC-USD_1h.csv` and
+`private_data/ETH-USD_1h.csv`, fetches them through the public research-only
+endpoint only when absent, and runs the local test/research suite. Missing
+candles are never filled; data with gaps is excluded from affected feature
+windows or explicitly segmented for the theoretical pairs experiment. A
+successful run **does not imply a profitable strategy** or authorize trading.

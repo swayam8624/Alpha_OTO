@@ -16,6 +16,12 @@ from .audit import audit_bars
 from .model_store import build_artifact, save_artifact, load_artifact, score_unseen
 from .quant_ml import research as run_ml_research, score_saved_model
 from .repair import repair_coinbase
+from .quant_agents import QuantAgent
+from .portfolio import PortfolioConfig, load_universe, simulate_portfolio
+from .quant_validation import research_portfolio
+from .quant_stress import stress_test
+from .cross_asset_ml import research_cross_asset
+from .pairs_lab import pairs_research
 
 
 def _save(path: str, payload: dict):
@@ -84,8 +90,58 @@ def main(argv=None):
     reinvest.add_argument("--liquid-cash",type=float,required=True)
     reinvest.add_argument("--cash-floor",type=float,required=True)
     reinvest.add_argument("--rate",type=float,default=.20)
+    qp = sub.add_parser("quant-portfolio", help="Multi-asset cost-aware portfolio simulation, research only")
+    qp.add_argument("--csv", action="append", required=True)
+    qp.add_argument("--agent", default="trend", choices=("trend","momentum","reversal","breakout","vol_adjusted_momentum","defensive"))
+    qp.add_argument("--fast", type=int, default=48)
+    qp.add_argument("--slow", type=int, default=168)
+    qp.add_argument("--out", default="artifacts/omega/portfolio.json")
+    qt = sub.add_parser("quant-tournament", help="Multi-asset chronological quant candidate validation")
+    qt.add_argument("--csv", action="append", required=True)
+    qt.add_argument("--out", default="artifacts/omega/quant_tournament.json")
+    qs = sub.add_parser("quant-stress", help="Cost/liquidity/risk sensitivity with block bootstrap")
+    qs.add_argument("--csv", action="append", required=True)
+    qs.add_argument("--agent", default="trend")
+    qs.add_argument("--fast", type=int, default=48)
+    qs.add_argument("--slow", type=int, default=168)
+    qs.add_argument("--out", default="artifacts/omega/stress.json")
+    cross = sub.add_parser("cross-ml", help="Pooled local cross-asset ML research, no execution")
+    cross.add_argument("--csv",action="append",required=True)
+    cross.add_argument("--models",default="ridge,histgb")
+    cross.add_argument("--horizons",default="4,12")
+    cross.add_argument("--out",default="artifacts/omega/cross_ml")
+    pairs = sub.add_parser("pairs-research", help="Hypothetical statistical spread research, NON-EXECUTABLE SHORTS")
+    pairs.add_argument("--csv",action="append",required=True)
+    pairs.add_argument("--out",default="artifacts/omega/pairs_research.json")
+    pairs.add_argument("--longest-contiguous-segment",action="store_true",
+                       help="Explicitly exclude gapped ranges and use the longest complete overlap")
     args = p.parse_args(argv)
-    if args.cmd == "demo":
+    if args.cmd == "quant-portfolio":
+        agent=QuantAgent(args.agent,args.fast,args.slow)
+        result=simulate_portfolio(load_universe(args.csv),agent)
+        _save(args.out,{"status":"RESEARCH_ONLY_NO_LIVE_ORDERS","result":result.summary()})
+        print(json.dumps(result.summary(),indent=2))
+    elif args.cmd == "quant-tournament":
+        result=research_portfolio(args.csv,args.out)
+        print(json.dumps({"selected":result["chosen_shadow_agent"],"holdout":result["holdout"],
+                          "report":args.out},indent=2))
+    elif args.cmd == "pairs-research":
+        result=pairs_research(args.csv,args.out,
+                              longest_contiguous_segment=args.longest_contiguous_segment)
+        print(json.dumps({"status":result["status"],"hedge":result["hedge"],
+                          "holdout":result["holdout"],"report":args.out},indent=2))
+    elif args.cmd == "quant-stress":
+        result=stress_test(args.csv,kind=args.agent,fast=args.fast,slow=args.slow,out=args.out)
+        print(json.dumps({"strategy":result["strategy"],
+           "returns_by_scenario":{k:round(v["agent"]["net_return"],6) for k,v in result["variants"].items()},
+           "report":args.out},indent=2))
+    elif args.cmd == "cross-ml":
+        result=research_cross_asset(args.csv,args.out,
+                 models=tuple(x.strip() for x in args.models.split(",")),
+                 horizons=tuple(int(x) for x in args.horizons.split(",")))
+        print(json.dumps({"selected":result["selected"],"holdout":result["holdout"],
+                          "report":str(Path(args.out)/"cross_asset_research.json")},indent=2))
+    elif args.cmd == "demo":
         if args.bars < 160 or args.bars > 100000:
             p.error("--bars must be between 160 and 100000")
         write_csv(args.out,synthetic_bars(args.bars))
