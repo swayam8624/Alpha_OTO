@@ -18,8 +18,9 @@ Local permitted OHLCV source -> strict CSV/Parquet warehouse (future)
     -> reconciliation and immutable audit log (future)
 ```
 
-The only implemented ingestion adapter today is CSV + optional read-only public
-Coinbase candles. It does not constitute India/US market-wide coverage.
+Implemented input: CSV + optional read-only public Coinbase candles.
+A local read-only watcher (`watch --csv ...`) can run continuously, but does
+not refresh those CSVs itself or submit any orders. It does not constitute India/US market-wide coverage.
 
 ## Future agent lifecycle
 

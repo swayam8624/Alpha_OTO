@@ -10,6 +10,8 @@ from .evolution import run_tournament
 from .local_ai import summarize_locally
 from .reinvestment import ReinvestmentPlan
 from .strategies import Trend
+from .demo import synthetic_bars
+from .watch import watch
 
 
 def _save(path: str, payload: dict):
@@ -36,6 +38,15 @@ def main(argv=None):
     local = sub.add_parser("local-report",help="Optional localhost Ollama briefing")
     local.add_argument("--json",required=True)
     local.add_argument("--model",default="qwen2.5:3b")
+    demo = sub.add_parser("demo",help="Create deterministic, EXPLICITLY SYNTHETIC research candles")
+    demo.add_argument("--out",default="artifacts/SYNTHETIC_ohlcv.csv")
+    demo.add_argument("--bars",type=int,default=480)
+    watcher = sub.add_parser("watch",help="Monitor local data without a broker or live trading")
+    watcher.add_argument("--csv",action="append",required=True,help="Repeat for each market file")
+    watcher.add_argument("--out",default="artifacts/watch.jsonl")
+    watcher.add_argument("--interval-seconds",type=float,default=60)
+    watcher.add_argument("--max-age-hours",type=float,default=48)
+    watcher.add_argument("--once",action="store_true")
     reinvest = sub.add_parser("reinvest",help="Calculate HUMAN-APPROVAL-ONLY hardware budget")
     reinvest.add_argument("--realized-profit",type=float,required=True)
     reinvest.add_argument("--tax-reserve",type=float,required=True)
@@ -43,7 +54,15 @@ def main(argv=None):
     reinvest.add_argument("--cash-floor",type=float,required=True)
     reinvest.add_argument("--rate",type=float,default=.20)
     args = p.parse_args(argv)
-    if args.cmd == "fetch-coinbase":
+    if args.cmd == "demo":
+        if args.bars < 160 or args.bars > 100000:
+            p.error("--bars must be between 160 and 100000")
+        write_csv(args.out,synthetic_bars(args.bars))
+        print(f"Saved deterministic SYNTHETIC candles: {args.out}; NOT market evidence")
+    elif args.cmd == "watch":
+        watch(args.csv,interval_seconds=args.interval_seconds,out=args.out,
+              once=args.once,max_age_hours=args.max_age_hours)
+    elif args.cmd == "fetch-coinbase":
         if args.days <= 0 or args.days > 90:
             p.error("--days must be from 1 to 90 (bounded public API usage)")
         end = datetime.now(timezone.utc)

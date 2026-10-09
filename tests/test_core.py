@@ -13,6 +13,8 @@ from alpha_oto.ml import LogisticModel, MLAgent, train_logistic, training_sample
 from alpha_oto.reinvestment import ReinvestmentPlan
 from alpha_oto.strategies import Trend, feature_vector
 from alpha_oto.local_ai import summarize_locally
+from alpha_oto.demo import synthetic_bars
+from alpha_oto.watch import inspect_file, watch
 
 
 def synthetic(n=240):
@@ -149,6 +151,23 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(negative["available_for_reinvestment"],0)
         self.assertEqual(positive["available_for_reinvestment"],2000)
         self.assertEqual(no_liquidity["available_for_reinvestment"],0)
+
+    def test_read_only_watcher_rejects_stale(self):
+        bars=synthetic_bars(200)
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/"SYNTHETIC.csv"
+            write_csv(p,bars)
+            report=inspect_file(p,now=bars[-1].timestamp+timedelta(hours=49))
+            self.assertFalse(report["data_current"])
+            self.assertFalse(report["trade_authorized"])
+            self.assertEqual(report["signal_count"],0)
+            journal=Path(d)/"watch.jsonl"
+            watch([str(p)],out=str(journal),once=True)
+            self.assertFalse(json.loads(journal.read_text().splitlines()[0])["trade_authorized"])
+
+    def test_synthetic_example_is_reproducible(self):
+        self.assertEqual(synthetic_bars(165),synthetic_bars(165))
+        self.assertEqual(synthetic_bars(165)[0].symbol,"SYNTHETIC-USD")
 
     def test_cloud_llm_forbidden(self):
         with self.assertRaises(ValueError):
