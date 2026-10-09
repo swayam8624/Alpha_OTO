@@ -26,6 +26,7 @@ agents chronologically, and calculates a profit-funded infrastructure budget.
 | 24/7-capable local watcher | Read-only multi-file polling, stale-data guard, append-only journal | Implemented; runs only when user starts it |
 | Reinvestment policy | Only positive realized profit after cost/tax reserve, subject to cash floor | Implemented (planning only) |
 | Multi-venue live execution | Broker, exchange, orders, authentication | **Not built** |
+| TailHunter options quote research | Bid/ask-depth-aware replay; separate hindsight peak from defined realized exits | Integrated, synthetic tests only |
 | Licensed historical options quotes | Depth, ticks, microstructure and verification | **Not acquired** |
 
 ## Quick start (Mac/Linux/Windows, Python 3.11+)
@@ -42,6 +43,9 @@ alpha-oto tournament --csv artifacts/SYNTHETIC_ohlcv.csv
 alpha-oto train-local --csv artifacts/SYNTHETIC_ohlcv.csv --out artifacts/SYNTHETIC_model.json
 alpha-oto score-local --csv artifacts/SYNTHETIC_ohlcv.csv --model artifacts/SYNTHETIC_model.json
 alpha-oto watch --csv artifacts/SYNTHETIC_ohlcv.csv --once
+
+# Separately investigate rare long-option tail events (100x HINDSIGHT demo):
+python3 -m tailhunter demo --save-demo artifacts/SYNTHETIC_quotes.csv
 
 # Or replay your own legally obtained point-in-time bars:
 alpha-oto simulate --csv path/to/own_ohlcv.csv
@@ -93,4 +97,4 @@ market data or place orders. `--once` is a safe smoke test.
    regulatory obligations for Indian residents, and supply credentials **locally**.
    Never commit credentials, PII or trade secrets to this repository.
 
-See [architecture](docs/ARCHITECTURE.md) and [cost/reinvestment plan](docs/COST_AND_GATES.md).
+See [architecture](docs/ARCHITECTURE.md), [cost/reinvestment plan](docs/COST_AND_GATES.md), and [TailHunter limitations](docs/TAILHUNTER.md).
