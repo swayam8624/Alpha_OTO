@@ -21,12 +21,8 @@ agents chronologically, and calculates a profit-funded infrastructure budget.
 | Chronological tournament | 60% training, 20% validation selection, 20% untouched report | Implemented, not proof of alpha |
 | Portfolio safeguards | Per-strategy position cap and drawdown halt | Simplified backtest only |
 | Local optional LLM | Explicit Ollama localhost report, **never** trade decisions | Implemented (optional) |
-| Provenance-checked local ML artifact | Immutable model JSON and training data SHA-256 | Implemented |
-| SQLite evolutionary experiment registry | Research/shadow/quarantine stages, no live stage | Implemented |
-| 24/7-capable local watcher | Read-only multi-file polling, stale-data guard, append-only journal | Implemented; runs only when user starts it |
 | Reinvestment policy | Only positive realized profit after cost/tax reserve, subject to cash floor | Implemented (planning only) |
 | Multi-venue live execution | Broker, exchange, orders, authentication | **Not built** |
-| TailHunter options quote research | Bid/ask-depth-aware replay; separate hindsight peak from defined realized exits | Integrated, synthetic tests only |
 | Licensed historical options quotes | Depth, ticks, microstructure and verification | **Not acquired** |
 
 ## Quick start (Mac/Linux/Windows, Python 3.11+)
@@ -37,17 +33,6 @@ python3 -m pip install -e .
 python3 -m unittest discover -s tests -v
 
 # Research using a CSV with timestamp,symbol,open,high,low,close,volume:
-# No data or network needed for a complete end-to-end software run:
-alpha-oto demo --out artifacts/SYNTHETIC_ohlcv.csv
-alpha-oto tournament --csv artifacts/SYNTHETIC_ohlcv.csv
-alpha-oto train-local --csv artifacts/SYNTHETIC_ohlcv.csv --out artifacts/SYNTHETIC_model.json
-alpha-oto score-local --csv artifacts/SYNTHETIC_ohlcv.csv --model artifacts/SYNTHETIC_model.json
-alpha-oto watch --csv artifacts/SYNTHETIC_ohlcv.csv --once
-
-# Separately investigate rare long-option tail events (100x HINDSIGHT demo):
-python3 -m tailhunter demo --save-demo artifacts/SYNTHETIC_quotes.csv
-
-# Or replay your own legally obtained point-in-time bars:
 alpha-oto simulate --csv path/to/own_ohlcv.csv
 alpha-oto tournament --csv path/to/own_ohlcv.csv
 
@@ -65,10 +50,6 @@ alpha-oto local-report --json artifacts/tournament.json --model qwen2.5:3b
 When using local Ollama, user must install Ollama and download model weights on
 their own machine. It is optional and **never** consulted for live orders. No
 cloud AI service, GitHub secret, or brokerage credential is needed.
-
-The `watch` command is read-only and can loop continuously on an always-on
-computer when started without `--once`; it does not automatically download
-market data or place orders. `--once` is a safe smoke test.
 
 ## Evidence rules
 
@@ -97,8 +78,7 @@ market data or place orders. `--once` is a safe smoke test.
    regulatory obligations for Indian residents, and supply credentials **locally**.
    Never commit credentials, PII or trade secrets to this repository.
 
-See [architecture](docs/ARCHITECTURE.md), [cost/reinvestment plan](docs/COST_AND_GATES.md), and [TailHunter limitations](docs/TAILHUNTER.md).
-
+See [architecture](docs/ARCHITECTURE.md) and [cost/reinvestment plan](docs/COST_AND_GATES.md).
 
 ## Next milestone: actual public-market historical research (v0.3)
 
@@ -111,3 +91,27 @@ Follow [the Mac real-data walkthrough](docs/NEXT_REAL_DATA.md). No API key,
 subscription, or cloud LLM is required. The public Coinbase feed is for
 **research** and is NOT a statement that Coinbase trading is legally available
 to Indian residents or that this feed grants commercial training rights.
+
+## New: locally trained multi-model quantitative research (v0.3)
+
+See **[the complete macOS training, data and optional Ollama guide](docs/ML_RESEARCH.md)**.
+
+```bash
+# No subscriptions, API keys or broker credentials; installs free local ML dependencies.
+bash scripts/bootstrap_mac.sh
+source .venv/bin/activate
+
+# Reuses existing BTC/ETH files or downloads free public data if absent,
+# audits timestamps, trains three local model families across 1h/4h/12h
+# prediction horizons and three chronological validation windows.
+bash scripts/run_crypto_research.sh
+
+# Optional LightGBM/XGBoost local training:
+python -m pip install lightgbm xgboost
+ALPHA_MODELS=logistic,histgb,forest,lightgbm,xgboost bash scripts/run_crypto_research.sh
+```
+
+**Research-only**: includes gap-aware feature construction, purged targets,
+held-out validation, cost-aware simulated trades, serialized local models,
+manifest checksums and independent buy/hold comparisons. No live orders,
+no guaranteed performance and no cloud AI usage.

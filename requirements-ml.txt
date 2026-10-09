@@ -1,0 +1,6 @@
+# Optional local scientific training; core application otherwise has no dependencies.
+numpy>=1.26,<3
+scipy>=1.11,<2
+scikit-learn>=1.5,<2
+joblib>=1.4,<2
+# Optional stronger models: see scripts/bootstrap_mac.sh for boosters
