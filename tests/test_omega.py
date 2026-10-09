@@ -119,6 +119,19 @@ class OmegaPortfolioTests(unittest.TestCase):
         self.assertTrue(any(p['stale'] for p in r.equity_curve))
         self.assertFalse(any(t.timestamp==self.data['BTC-USD'][300].timestamp.isoformat() for t in r.fills))
 
+    def test_current_candle_volume_cannot_influence_opening_order(self):
+        baseline=simulate_portfolio(self.data,config=self.cfg,benchmark='equal_weight',
+                                    first=170,last=200)
+        modified=dict(self.data)
+        altered=list(self.data['BTC-USD'])
+        altered[170]=replace(altered[170],volume=1)
+        modified['BTC-USD']=altered
+        variant=simulate_portfolio(modified,config=self.cfg,benchmark='equal_weight',
+                                   first=170,last=200)
+        t=self.data['BTC-USD'][170].timestamp.isoformat()
+        self.assertEqual([f for f in baseline.fills if f.timestamp==t],
+                         [f for f in variant.fills if f.timestamp==t])
+
     def test_zero_volume_cannot_fill(self):
         data={s:candles(s,950,high_volume=False) for s in ['BTC-USD','ETH-USD']}
         r=simulate_portfolio(data,config=self.cfg,benchmark='equal_weight',first=170)

@@ -245,7 +245,11 @@ def simulate_portfolio(universe: Mapping[str, Sequence[Bar]],
                     diff=(wanted-have) if side=='BUY' else (have-wanted)
                     if diff < config.min_trade_notional:
                         continue
-                    max_value=min(diff, config.max_participation*b.volume*b.open)
+                    # The current bar's *total* volume is unknown at its OPEN.
+                    # Use only previous completed candle volume as a rough
+                    # capacity proxy. This is not broker order-book depth.
+                    prior_volume=windows[s][-1].volume if windows[s] else 0.0
+                    max_value=min(diff, config.max_participation*prior_volume*b.open)
                     if side=='BUY':
                         max_value=min(max_value,cash/(1+config.side_fee_bps/1e4))
                     else:
