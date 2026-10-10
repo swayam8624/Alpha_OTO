@@ -158,3 +158,19 @@ records. No live broker credentials, external order endpoints or live permission
 were introduced. Use `python -m alpha_oto.production durable-start`, then
 `durable-recover`, `durable-complete`, and `durable-status` with the SAME two
 `--db` and `--broker-db` paths. Do not reuse existing demo database filenames.
+
+## v0.8 — Process-isolated simulated risk and sequenced bid/ask feed
+
+See [v0.8 risk and quote-feed engineering manual](docs/ISOLATED_RISK_V08.md).
+The new code uses a strict, version-pinned market calendar/instrument whitelist,
+SQLite WAL event-chain quote ingestion with fail-closed sequence quarantine,
+Unix-socket simulation risk authorization, and a two-process synthetic
+broker fault-injection demonstration. It includes **no** real broker interface,
+no live executable market feed, and no evidence of profitable strategies.
+
+```bash
+PYTHONPATH=src python scripts/risk_isolated_smoke.py \
+  --outdir "artifacts/production/isolation_$(date +%Y%m%d_%H%M%S)"
+```
+
+No new paid service, cloud model, or real trading capital is required.

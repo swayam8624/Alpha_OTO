@@ -1,0 +1,10 @@
+{
+  "version": "sim-v0.8-20261010",
+  "markets": [
+    {
+      "symbol":"BTC-USD", "venue":"SIMULATED", "currency":"USD",
+      "tick":"0.01", "lot":"0.001", "max_units":"2",
+      "timezone":"UTC", "continuous":true,"simulation_approved":true
+    }
+  ]
+}
