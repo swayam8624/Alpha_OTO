@@ -106,6 +106,8 @@ class DurableQuoteFeed:
         self.db.execute('BEGIN IMMEDIATE')
         try:
             latest=self.db.execute('SELECT * FROM quote_latest WHERE symbol=?',(symbol,)).fetchone()
+            if self.db.execute('SELECT 1 FROM quote_incidents WHERE symbol=? LIMIT 1',(symbol,)).fetchone():
+                raise SequenceGap('Feed quarantined by historical incident')
             if latest:
                 if latest['quarantined']:
                     raise SequenceGap('Feed quarantined: '+latest['reason'])
@@ -131,6 +133,37 @@ class DurableQuoteFeed:
         except BaseException:
             if self.db.in_transaction:self.db.execute('ROLLBACK')
             raise
+
+    def sequence_for(self,symbol:str)->int:
+        """Read local quote sequence; exchange L2 messages have separate semantics."""
+        self.verify()
+        row=self.db.execute('SELECT seq,quarantined FROM quote_latest WHERE symbol=?',(symbol,)).fetchone()
+        if row is not None and row['quarantined']:
+            raise RiskRejected('Cannot resume quarantined feed without a new feed generation')
+        if self.db.execute('SELECT 1 FROM quote_incidents WHERE symbol=? LIMIT 1',(symbol,)).fetchone():
+            raise RiskRejected('Feed has incident history; operator must start new feed')
+        return row['seq'] if row else 0
+
+    def quarantine(self,symbol:str,reason:str):
+        """Irreversibly suspend this feed generation; no automatic resync.
+
+        A disconnected L2 book cannot be trusted from its old L1 quote even
+        if that quote would otherwise be fresh. Persist a hash-chained event.
+        """
+        if not symbol or not reason or len(reason)>120:
+            raise ValueError('Explicit quarantine reason and symbol required')
+        self.verify()
+        if self.db.execute('SELECT 1 FROM quote_incidents WHERE symbol=? LIMIT 1',(symbol,)).fetchone():
+            return {'status':'ALREADY_QUARANTINED','symbol':symbol}
+        self.db.execute('BEGIN IMMEDIATE')
+        try:
+            self._incident(symbol,reason)
+            self.db.execute('UPDATE quote_latest SET quarantined=1,reason=? WHERE symbol=?',(reason,symbol))
+            self.db.execute('COMMIT')
+        except BaseException:
+            if self.db.in_transaction:self.db.execute('ROLLBACK')
+            raise
+        return {'status':'QUARANTINED','symbol':symbol,'reason':reason}
 
     def latest(self,symbol:str)->Quote:
         self.verify()

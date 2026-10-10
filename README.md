@@ -174,3 +174,22 @@ PYTHONPATH=src python scripts/risk_isolated_smoke.py \
 ```
 
 No new paid service, cloud model, or real trading capital is required.
+
+## v0.9 — Coinbase public Level 2 quotes, recorded replay and watchdog
+
+The [v0.9 market-data and operations guide](docs/REALTIME_MARKET_DATA_V09.md)
+adds a **read-only** Coinbase Exchange Level2 WebSocket client (optional free
+`websockets` dependency), an absolute-size order-book reconstruction engine,
+verified timestamped best-bid/ask publication, tamper-evident raw event logs,
+durable disconnect quarantines, and an independent risk daemon health monitor.
+It also adds a separate-process fake-price end-to-end scenario (no capital):
+
+```bash
+PYTHONPATH=src python scripts/l2_isolated_smoke.py \
+  --outdir "artifacts/production/l2_$(date +%Y%m%d_%H%M%S)"
+```
+
+Capture is **read-only public market data**, not proof of a profitable edge,
+licensed commercial feeds, account eligibility or actual order fills. The feed
+is sealed at the end of every bounded capture. No live brokerage authorization
+or private key usage is included.
