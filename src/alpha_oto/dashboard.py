@@ -1,7 +1,7 @@
-"""Loopback-only Alpha_OTO operator dashboard. NO broker/order/payment endpoints.
+"""Loopback-only Alpha_OTO operator dashboard. NO broker orders or payments.
 
 The website orchestrates existing offline research and paper-only workflows. It
-cannot unlock live trading, accept bank credentials or charge a payment method.
+cannot unlock live trading or charge a payment method. Broker token is memory only.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / 'dashboard_static'
 MAX_BODY = 8192
 MAX_LOG = 16000
-LIVE_REJECTION = 'Real-money order routing, deposits, broker credentials and payments are not implemented or authorized.'
+LIVE_REJECTION = 'Real-money orders, deposits, withdrawals and payments are not implemented or authorized.'
 
 
 def _utc():
@@ -63,6 +63,7 @@ class DashboardService:
 
     ACTIONS = {
         'tests': {'label': 'Run offline test suite', 'timeout': 300},
+        'paper_start': {'label': 'Start forward-only paper monitoring', 'timeout': 300},
         'omega': {'label': 'Quantitative strategy research', 'timeout': 1800},
         'forward': {'label': 'Advance forward-only paper ledger', 'timeout': 240},
         'data': {'label': 'Refresh BTC/ETH completed candles', 'timeout': 180},
@@ -73,6 +74,8 @@ class DashboardService:
 
     def __init__(self, root=ROOT, *, start_scheduler=True):
         self.root = Path(root).resolve()
+        from .dhan_readonly import DhanSession
+        self.dhan = DhanSession()  # Secrets remain in volatile memory; never in SQLite.
         self.state_dir = self.root / 'private_data' / 'dashboard'
         self.state_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -137,14 +140,15 @@ class DashboardService:
             'paper_budget': state.get('paper_budget', 10000),
             'paper_schedule_enabled': bool(self._get('schedule_enabled', False)),
             'mode': 'PAPER_ONLY',
-            'broker_connected': False,
+            'broker_connected': self.dhan.status()['connected'],
+            'broker_readonly': self.dhan.status(),
             'payments_connected': False,
             'real_orders_enabled': False,
             'steps': [
                 {'id': 'machine', 'title': 'Local runtime', 'state': 'COMPLETE'},
                 {'id': 'venue', 'title': 'Select market and broker', 'state': 'COMPLETE' if state.get('market') not in (None, 'undecided') and state.get('broker') not in (None, 'undecided') else 'PENDING'},
                 {'id': 'paper', 'title': 'Paper trading and data validation', 'state': 'AVAILABLE'},
-                {'id': 'identity', 'title': 'Broker identity verification / KYC', 'state': 'EXTERNAL_REQUIRED'},
+                {'id': 'identity', 'title': 'Dhan account verification (read-only)', 'state': 'COMPLETE' if self.dhan.status()['connected'] else 'EXTERNAL_REQUIRED'},
                 {'id': 'funding', 'title': 'Funding / fee payments', 'state': 'EXTERNAL_REQUIRED'},
                 {'id': 'approval', 'title': 'Live risk and legal approvals', 'state': 'NOT_AVAILABLE'},
             ],
@@ -192,6 +196,8 @@ class DashboardService:
         paths = ['private_data/BTC-USD_1h.csv', 'private_data/ETH-USD_1h.csv']
         if action == 'tests':
             return [python, '-m', 'unittest', 'discover', '-s', 'tests', '-q']
+        if action == 'paper_start':
+            return ['bash', 'scripts/start_paper_once.sh']
         if action == 'omega':
             return ['bash', 'scripts/run_omega_research.sh']
         if action == 'forward':
@@ -251,6 +257,9 @@ class DashboardService:
                         out.write(f'\nStopped with exit code {code}\n')
                         break
                 status = 'SUCCEEDED' if code == 0 else 'FAILED'
+                if code == 0 and action == 'paper_start':
+                    # Background future-only monitoring while the dashboard lives.
+                    self.set_schedule(True)
         except subprocess.TimeoutExpired:
             status, code = 'TIMED_OUT', 124
             with log.open('a', encoding='utf-8') as out:
@@ -329,15 +338,16 @@ class DashboardService:
         capture_dir = self.root / 'private_data/market'
         market_files = sorted(capture_dir.glob('dashboard_*.jsonl'), reverse=True) if capture_dir.exists() else []
         return {'product': 'ALPHA / OTO', 'mode': 'LOCAL_PAPER_ONLY',
-                'live_approved': False, 'broker_connected': False,
+                'live_approved': False, 'broker_connected': self.dhan.status()['connected'],
                 'payments_supported': False, 'clock_utc': _utc(),
                 'series': series, 'forward': forward, 'reports': reports,
-                'setup': setup, 'jobs': self.jobs(6),
+                'setup': setup, 'broker_readonly': self.dhan.status(), 'jobs': self.jobs(6),
                 'market_captures': [{'name': f.name, 'bytes': f.stat().st_size} for f in market_files[:4]],
                 'disk_free_gb': round(shutil.disk_usage(self.root).free / 1e9, 1),
                 'runtime': sys.version.split()[0]}
 
     def close(self):
+        self.dhan.disconnect()
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=1)
@@ -387,7 +397,13 @@ def make_handler(service, *, secret):
                 return False
             return True
 
+        def _host_allowed(self):
+            host=self.headers.get('Host', '')
+            return host in {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
+
         def do_GET(self):
+            if not self._host_allowed():
+                return self._send({'error':'Localhost origin required'},403)
             uri = urlsplit(self.path)
             if uri.path == '/' and 'login' in parse_qs(uri.query):
                 value = parse_qs(uri.query)['login'][0]
@@ -407,6 +423,8 @@ def make_handler(service, *, secret):
                 return self._send(service.overview())
             if uri.path == '/api/setup':
                 return self._send(service.setup())
+            if uri.path == '/api/broker/status':
+                return self._send(service.dhan.status())
             if uri.path == '/api/jobs':
                 return self._send({'jobs': service.jobs()})
             if uri.path == '/api/job':
@@ -426,6 +444,8 @@ def make_handler(service, *, secret):
             self.wfile.write(data)
 
         def do_POST(self):
+            if not self._host_allowed():
+                return self._send({'error':'Localhost origin required'},403)
             if not self._auth():
                 return
             origin = self.headers.get('Origin', '')
@@ -443,6 +463,18 @@ def make_handler(service, *, secret):
                     raise ValueError('Expected JSON object')
                 if self.path == '/api/setup':
                     return self._send(service.save_setup(raw))
+                if self.path == '/api/broker/connect':
+                    if set(raw) != {'client_id', 'token'}:
+                        raise ValueError('Only Dhan client ID and access token allowed')
+                    return self._send(service.dhan.connect(raw['token'], raw['client_id']))
+                if self.path == '/api/broker/disconnect':
+                    if raw:
+                        raise ValueError('Disconnect has no parameters')
+                    return self._send(service.dhan.disconnect())
+                if self.path == '/api/broker/snapshot':
+                    if raw:
+                        raise ValueError('Read-only snapshot has no parameters')
+                    return self._send(service.dhan.snapshot())
                 if self.path == '/api/jobs':
                     if set(raw) != {'action'}:
                         raise ValueError('Only a named allowlisted operation is permitted')
@@ -471,7 +503,7 @@ def serve(root=ROOT, *, port=8765, open_browser=True):
         url = f'http://127.0.0.1:{addr}/?login={secret}'
         print('Alpha_OTO local operator dashboard', flush=True)
         print(f'Open this private local URL: {url}', flush=True)
-        print('Paper trading only. No money, broker credentials or payments.', flush=True)
+        print('Dhan read-only account inspection available. Live orders, deposits and payments disabled.', flush=True)
         if open_browser:
             webbrowser.open(url)
         try:

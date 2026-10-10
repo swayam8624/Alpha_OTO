@@ -147,69 +147,23 @@ licensed production broker implementation or an economically validated alpha.
 No real order execution, no live trading permissions, and no trading revenue
 are introduced in v0.6.
 
-## v0.7: Durably simulated broker — restart and recovery tests
+### v0.9.1 — public Level 2 capture compatibility fix
 
-The [v0.7 durable simulated broker runbook](docs/DURABLE_BROKER_V07.md) adds
-an **offline, separate SQLite remote emulator**, independent from the existing
-crash-consistent order/accounting ledger. It can persist remote order acceptance
-before throwing a simulated lost acknowledgment, survive actual Python process
-restarts, import partial fills exactly once, and detect divergent financial
-records. No live broker credentials, external order endpoints or live permissions
-were introduced. Use `python -m alpha_oto.production durable-start`, then
-`durable-recover`, `durable-complete`, and `durable-status` with the SAME two
-`--db` and `--broker-db` paths. Do not reuse existing demo database filenames.
+The live Coinbase Exchange `level2` channel requires authentication. Use the
+**public Coinbase Advanced Trade** endpoint instead (the new default) with
+`python -m alpha_oto.production.marketd capture --product BTC-USD --seconds 60
+--limit 10000 --feed private_data/market/new_feed.sqlite3 --raw-journal
+private_data/market/new_events.jsonl`. The importer now checks connection-wide
+sequence numbers and explicitly quarantines missing frames and venue errors.
+See [the market-data guide](docs/REALTIME_MARKET_DATA_V09.md). Old Exchange
+wire-format replay remains available for compatibility, not trading.
 
-## v0.8 — Process-isolated simulated risk and sequenced bid/ask feed
+## Web console v1.0 — one-command local operations GUI
 
-See [v0.8 risk and quote-feed engineering manual](docs/ISOLATED_RISK_V08.md).
-The new code uses a strict, version-pinned market calendar/instrument whitelist,
-SQLite WAL event-chain quote ingestion with fail-closed sequence quarantine,
-Unix-socket simulation risk authorization, and a two-process synthetic
-broker fault-injection demonstration. It includes **no** real broker interface,
-no live executable market feed, and no evidence of profitable strategies.
-
-```bash
-PYTHONPATH=src python scripts/risk_isolated_smoke.py \
-  --outdir "artifacts/production/isolation_$(date +%Y%m%d_%H%M%S)"
-```
-
-No new paid service, cloud model, or real trading capital is required.
-
-## v0.9 — Coinbase public Level 2 quotes, recorded replay and watchdog
-
-The [v0.9 market-data and operations guide](docs/REALTIME_MARKET_DATA_V09.md)
-adds a **read-only** Coinbase Exchange Level2 WebSocket client (optional free
-`websockets` dependency), an absolute-size order-book reconstruction engine,
-verified timestamped best-bid/ask publication, tamper-evident raw event logs,
-durable disconnect quarantines, and an independent risk daemon health monitor.
-It also adds a separate-process fake-price end-to-end scenario (no capital):
-
-```bash
-PYTHONPATH=src python scripts/l2_isolated_smoke.py \
-  --outdir "artifacts/production/l2_$(date +%Y%m%d_%H%M%S)"
-```
-
-Capture is **read-only public market data**, not proof of a profitable edge,
-licensed commercial feeds, account eligibility or actual order fills. The feed
-is sealed at the end of every bounded capture. No live brokerage authorization
-or private key usage is included.
-
-### v0.9.1: Public Level 2 WebSocket compatibility
-
-The old Exchange `level2` channel rejects unauthenticated subscriptions.
-`python -m alpha_oto.production.marketd capture` now uses Coinbase Advanced
-Trade's **public** read-only L2 feed, including connection-wide sequence
-verification and fail-closed quarantine. Use fresh SQLite and journal paths.
-No API key, broker account or live order capability is introduced. See
-[market-data protocol notes](docs/REALTIME_MARKET_DATA_V09.md).
-
-## New v1.0 — Private local web console
-
-The [one-command operator dashboard](docs/WEB_CONSOLE_V10.md) includes a browser
-interface for market data, strategy status, tests, simulated risk/broker checks,
-read-only Level 2 captures, background operation logs, hourly paper monitoring,
-and a guided account-readiness checklist. It runs with the Python standard
-library and binds only to 127.0.0.1.
+The [local operations console](docs/WEB_CONSOLE_V10.md) provides a browser UI
+for market data, research, forward-only paper monitoring, test and smoke-test
+jobs, log inspection, and a step-by-step account-readiness checklist. It runs
+on the Python standard library and only binds to `127.0.0.1`.
 
 ```bash
 cd "$HOME/Desktop/All Might/Alpha_OTO/Alpha_OTO"
@@ -218,6 +172,16 @@ git pull --ff-only
 bash scripts/start_alpha_oto.sh
 ```
 
-This is **PAPER ONLY**: selecting a broker does not establish credentials, KYC,
-funding, payments, regulatory approval, or authority to submit live orders.
-Never expose the local operator server publicly.
+The first launch prints a private localhost browser URL and opens the UI.
+Local broker selections are *preferences*, not authorizations; the dashboard
+has no live-order endpoint, payment processor or broker-account integration.
+Do not expose this development console to the internet. The system still
+requires an approved real broker, instrument rights, security review and
+independent economic validation before real-money trading is appropriate.
+
+
+## New v1.1 — Real Dhan account inspection and browser-driven paper launch
+
+Run `bash scripts/start_alpha_oto.sh`. In the **Dhan account** sidebar page, enter a manually generated 24-hour DhanHQ token and client ID. The server verifies the token with Dhan's official `/v2/profile` GET endpoint; you can then inspect real broker funds, holdings, positions and current-day orders using **GET-only** API calls. The token is held in Python process memory, never persisted. Account funding, subscriptions and identity verification are performed on Dhan's own website. The provider token itself may contain order privileges even though Alpha_OTO only calls GET routes. **No real-money orders or transfers are implemented.**
+
+The Overview's **Start paper monitoring** action safely initializes the existing frozen BTC/ETH forward experiment (if absent) and enables hourly checks while the application remains running. This is independent of Dhan, uses hypothetical money and cannot invest account funds. See [Dhan v1.1 onboarding and limitations](docs/DHAN_CONNECTION_V11.md).

@@ -161,3 +161,46 @@ class DashboardHttpTests(unittest.TestCase):
         self.assertEqual(self._request('/api/job?id=../../foo')[0],404)
 
 if __name__=='__main__':unittest.main()
+
+class DhanDashboardHttpTests(DashboardHttpTests):
+    """Local credential flow is authenticated and CSRF-protected, never live."""
+
+    def setUp(self):
+        super().setUp()
+        from alpha_oto.dhan_readonly import DhanReadOnlyClient
+        from test_dhan_readonly import BrokerStub
+        self.stub=BrokerStub()
+        self.service.dhan.client=DhanReadOnlyClient(opener=self.stub)
+
+    def _login_broker(self):
+        self._request('/?login=a-private-launch-secret')
+        self.csrf=self._request('/api/bootstrap')[1]['csrf']
+
+    def test_broker_endpoints_reject_missing_csrf_or_secret_fields(self):
+        self._login_broker()
+        self.assertEqual(self._request('/api/broker/connect',body={'client_id':'1000000001','token':'a'*48})[0],403)
+        self.assertEqual(self._request('/api/broker/connect',body={'client_id':'1000000001','token':'a'*48,'live_enabled':True},csrf=self.csrf)[0],400)
+        self.assertEqual(self.stub.paths,[])
+
+    def test_read_only_connect_refresh_disconnect_and_no_token_in_json(self):
+        self._login_broker()
+        token='a'*48
+        code,body=self._request('/api/broker/connect',body={'client_id':'1000000001','token':token},csrf=self.csrf)
+        self.assertEqual(code,200)
+        self.assertTrue(body['connected'])
+        self.assertNotIn(token,json.dumps(body))
+        self.assertTrue(self._request('/api/overview')[1]['broker_connected'])
+        code,body=self._request('/api/broker/snapshot',body={},csrf=self.csrf)
+        self.assertEqual(code,200)
+        self.assertEqual(body['holdings']['total'],1)
+        self.assertNotIn(token,json.dumps(body))
+        self.assertEqual(self._request('/api/broker/disconnect',body={},csrf=self.csrf)[1]['connected'],False)
+        self.assertFalse(self._request('/api/overview')[1]['broker_connected'])
+        self.assertEqual([p[1] for p in self.stub.paths],['GET']*5)
+
+    def test_illegal_live_and_funding_api_routes_not_exposed(self):
+        self._login_broker()
+        for path in ('/api/broker/order','/api/broker/withdraw','/api/broker/pay','/api/broker/deposit'):
+            self.assertEqual(self._request(path,body={'action':'BUY','amount':1},csrf=self.csrf)[0],404)
+        self.assertFalse(self.service.dhan.status()['connected'])
+
