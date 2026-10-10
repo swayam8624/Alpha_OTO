@@ -146,3 +146,15 @@ A simulated broker that can withstand unit-test fault injection is **not** a
 licensed production broker implementation or an economically validated alpha.
 No real order execution, no live trading permissions, and no trading revenue
 are introduced in v0.6.
+
+## v0.7: Durably simulated broker — restart and recovery tests
+
+The [v0.7 durable simulated broker runbook](docs/DURABLE_BROKER_V07.md) adds
+an **offline, separate SQLite remote emulator**, independent from the existing
+crash-consistent order/accounting ledger. It can persist remote order acceptance
+before throwing a simulated lost acknowledgment, survive actual Python process
+restarts, import partial fills exactly once, and detect divergent financial
+records. No live broker credentials, external order endpoints or live permissions
+were introduced. Use `python -m alpha_oto.production durable-start`, then
+`durable-recover`, `durable-complete`, and `durable-status` with the SAME two
+`--db` and `--broker-db` paths. Do not reuse existing demo database filenames.
