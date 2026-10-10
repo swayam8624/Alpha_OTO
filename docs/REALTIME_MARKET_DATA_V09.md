@@ -74,3 +74,30 @@ Exit code 0 means *simulator checks green*. Exit code 2 means CRITICAL: risk dae
 ## Missing production gates
 
 There is still **no real broker adapter, authenticated trading account, approved execution router, licensed executable quote and historical depth validation, market-specific fee/tax accounting, robust service supervision, alerting, independent security review or demonstrated after-cost profitability**. Never infer real execution authorization from working market-data plumbing. Maintain the forward-only evidence process and separate simulation risk budgets from personal capital.
+
+## v0.9.1: Public Advanced Trade L2 capture correction
+
+The old Coinbase Exchange `level2` channel requires authentication. Public,
+read-only capture now defaults to `wss://advanced-trade-ws.coinbase.com`, which
+accepts subscriptions without any user or trading keys. The Advanced Trade
+protocol has one `channel` per subscribe request and emits `l2_data` frames
+with a connection-wide `sequence_num`. Each snapshot/update contains
+`side=bid/offer`, `price_level`, `new_quantity` and `event_time` records.
+It cannot be decoded as Exchange's older `snapshot`/`l2update` wire protocol.
+
+The adapter journals the **original** frames and verifies sequence continuity
+across all subscribed channels, including heartbeats, before publishing quotes.
+It requires a full snapshot followed by a timestamped update. A gap, duplicate,
+provider error, stale or future-dated update, crossed book or failed journal
+write quarantines the run. Start another run with **fresh output paths**;
+no silent fallback or trading access is enabled.
+
+The CLI defaults to the public Advanced Trade source for `capture`; legacy
+`replay` stays on the Exchange format unless `--source advanced` is given.
+On provider refusal, the command now emits the provider's bounded
+`message`/`reason` text with a nonzero exit code, not an uninformative traceback.
+The live endpoint still needs network testing on the operator's Mac.
+
+References: https://docs.cdp.coinbase.com/coinbase-app/advanced-trade-apis/websocket/websocket-overview
+and https://docs.cloud.coinbase.com/exchange/docs/changelog#2023-aug-01 .
+This is market-data collection only, never a broker trading permission.

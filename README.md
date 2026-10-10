@@ -193,3 +193,12 @@ Capture is **read-only public market data**, not proof of a profitable edge,
 licensed commercial feeds, account eligibility or actual order fills. The feed
 is sealed at the end of every bounded capture. No live brokerage authorization
 or private key usage is included.
+
+### v0.9.1: Public Level 2 WebSocket compatibility
+
+The old Exchange `level2` channel rejects unauthenticated subscriptions.
+`python -m alpha_oto.production.marketd capture` now uses Coinbase Advanced
+Trade's **public** read-only L2 feed, including connection-wide sequence
+verification and fail-closed quarantine. Use fresh SQLite and journal paths.
+No API key, broker account or live order capability is introduced. See
+[market-data protocol notes](docs/REALTIME_MARKET_DATA_V09.md).
