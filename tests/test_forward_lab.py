@@ -7,7 +7,7 @@ import json
 import unittest
 
 from alpha_oto.data import Bar, read_csv, write_csv
-from alpha_oto.forward_lab import freeze_forward, advance_forward, status_forward
+from alpha_oto.forward_lab import freeze_forward, advance_forward, status_forward, _paper_fill
 from alpha_oto.incremental import update_coinbase
 from alpha_oto.demo import synthetic_bars
 
@@ -124,6 +124,18 @@ class ForwardLabTests(unittest.TestCase):
     def test_no_future_data_at_freeze(self):
         with self.assertRaisesRegex(ValueError,'unfinished bar'):
             freeze_forward(self.files,self.state,now=self.freeze_time-timedelta(hours=2))
+
+    def test_late_drawdown_halt_blocks_precommitted_buy(self):
+        self.freeze()
+        report=advance_forward(self.files,self.state,now=self.freeze_time)
+        state=json.loads(Path(self.state).read_text())
+        target=datetime.fromisoformat(report['pending_future_intent'])
+        bench=state['books']['equal_weight_benchmark']
+        bench['halted']=True
+        rows={s:Bar(target,s,100,103,99,101,100) for s in self.symbols}
+        _paper_fill(state,state['pending_intent'],rows)
+        self.assertTrue(all(units==0 for units in bench['positions'].values()))
+        self.assertEqual(bench['cash'],state['starting_cash'])
 
     def test_no_live_permissions_through_schema(self):
         self.freeze()

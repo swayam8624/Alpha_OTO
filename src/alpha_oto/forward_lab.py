@@ -216,6 +216,10 @@ def _paper_fill(state,intent,bars_at):
     for name,book in state['books'].items():
         nav_before=_nav(book,next_open)
         target=intent['proposals'][name]['weights']
+        # A drawdown halt occurring AFTER intent precommitment is binding
+        # at simulated execution: never open a new long while halted.
+        if book['halted']:
+            target={sym:0.0 for sym in symbols}
         for side in ('SELL','BUY'):
             for sym in symbols:
                 slip=risk['side_slippage_bps']/1e4
