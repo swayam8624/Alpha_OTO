@@ -116,59 +116,33 @@ held-out validation, cost-aware simulated trades, serialized local models,
 manifest checksums and independent buy/hold comparisons. No live orders,
 no guaranteed performance and no cloud AI usage.
 
-## Coinbase missing-candle repairs (research only)
+## New v0.5: Precommitted forward-only research evidence
 
-After downloading Coinbase history, use `alpha-oto repair-coinbase --csv
-private_data/BTC-USD_1h.csv` to request missing time windows. The original CSV
-is preserved. The new `_repaired.csv` and `.repair.json` explicitly distinguish
-`recovered_intervals` from `unresolved_intervals`. An empty Coinbase reply
-means the specific gap remains **missing**; it is not proof of a flat price or
-zero volume. Model windows spanning those gaps remain excluded. If the historical
-holdout has already been reviewed, do not reuse that period for new model tuning.
+Omega's previously inspected breakout holdout **lost 1.95% versus a +18.22%
+benchmark return**. The historical holdout is no longer unseen. Instead of
+continuing to optimize against it, the new [forward-evidence protocol](docs/FORWARD_EVIDENCE.md)
+freezes challenger parameters and writes a timestamped, tamper-evident local
+journal of **future** research intents. Missing market data block paper fills;
+no broker is connected, and actual bid/ask executable profitability has not
+been established. The script `scripts/forward_once.sh` can be invoked manually
+on your Mac; it only fetches recent read-only public history and updates a
+**paper-only** ledger, never buys or sells assets. No cloud LLM is required.
 
 
-## Omega quantitative engine v0.4 (offline, multi-market research)
+## v0.6 — Broker emulator, crash-safe accounting and fail-closed risk core
 
-The [Omega quantitative research guide](docs/OMEGA_QUANT_ENGINE.md) documents
-nine fixed quant configurations, covariance risk budgeting, volatility-regime
-throttling, a multi-asset next-open ledger, purged pooled cross-market ML,
-walk-forward shadow evaluation, fee/liquidity stress tests and a **non-executable**
-pairs diagnostics lab. Same-quote-currency, 24/7 markets only; Indian equities,
-overnight shorting, options, multi-currency settlement and live execution are not
-implemented by Omega's portfolio engine.
-
-From the repository root in your local Python environment:
+The [production-core specification](docs/PRODUCTION_CORE.md) documents the new
+SQLite event/financial ledger, broker emulator, order lifecycle, conservative
+risk gate, independent broker-vs-local reconciliation, and read-only health tool.
+All production-core commands are **simulated only**, with no live API calls:
 
 ```bash
-bash scripts/run_omega_research.sh
+python -m alpha_oto.production demo --db artifacts/production/simulation.sqlite3
+python -m alpha_oto.production status --db artifacts/production/simulation.sqlite3
+python -m alpha_oto.production health --db artifacts/production/simulation.sqlite3
 ```
 
-The script reuses existing `private_data/BTC-USD_1h.csv` and
-`private_data/ETH-USD_1h.csv`, fetches them through the public research-only
-endpoint only when absent, and runs the local test/research suite. Missing
-candles are never filled; data with gaps is excluded from affected feature
-windows or explicitly segmented for the theoretical pairs experiment. A
-successful run **does not imply a profitable strategy** or authorize trading.
-
-### Research-only adaptive shadow swarm
-
-The **Omega online-learning committee** is now available via
-`alpha-oto shadow-swarm --csv private_data/BTC-USD_1h.csv --csv private_data/ETH-USD_1h.csv`.
-It weights nine fixed quant experts from prior completed observations, subtracts
-proxy-turnover friction, quarantines persistently poor shadow experts and
-tracks adaptation across chronological partitions. It has **no ability** to
-execute orders or allocate real money. See
-[Omega documentation](docs/OMEGA_QUANT_ENGINE.md#9-adaptive-shadow-committee-online-learning-not-live-orders).
-
-## New v0.5 — Precommitted forward-only research evidence
-
-The earlier Omega BTC/ETH breakout holdout lost **1.95%**, while the same
-period's equal-weight benchmark gained **18.22%**. Because this historical
-holdout has already been inspected, it is no longer suitable for repeated
-model tuning. The new [Forward Evidence Protocol](docs/FORWARD_EVIDENCE.md)
-freezes parameters *before* subsequent observations, records future intents,
-and later models hypothetical fills only for precommitted periods. The local
-[safe updater](src/alpha_oto/incremental.py) appends completed Coinbase bars
-without backfilling unknown prices. The `scripts/forward_once.sh` command
-performs a read-only data update and shadow research step; **no broker or live
-trading connection is added**, and no cloud AI is required.
+A simulated broker that can withstand unit-test fault injection is **not** a
+licensed production broker implementation or an economically validated alpha.
+No real order execution, no live trading permissions, and no trading revenue
+are introduced in v0.6.
