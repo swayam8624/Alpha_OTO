@@ -159,3 +159,16 @@ proxy-turnover friction, quarantines persistently poor shadow experts and
 tracks adaptation across chronological partitions. It has **no ability** to
 execute orders or allocate real money. See
 [Omega documentation](docs/OMEGA_QUANT_ENGINE.md#9-adaptive-shadow-committee-online-learning-not-live-orders).
+
+## New v0.5 — Precommitted forward-only research evidence
+
+The earlier Omega BTC/ETH breakout holdout lost **1.95%**, while the same
+period's equal-weight benchmark gained **18.22%**. Because this historical
+holdout has already been inspected, it is no longer suitable for repeated
+model tuning. The new [Forward Evidence Protocol](docs/FORWARD_EVIDENCE.md)
+freezes parameters *before* subsequent observations, records future intents,
+and later models hypothetical fills only for precommitted periods. The local
+[safe updater](src/alpha_oto/incremental.py) appends completed Coinbase bars
+without backfilling unknown prices. The `scripts/forward_once.sh` command
+performs a read-only data update and shadow research step; **no broker or live
+trading connection is added**, and no cloud AI is required.

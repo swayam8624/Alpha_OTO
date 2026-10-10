@@ -119,8 +119,31 @@ def main(argv=None):
     swarm=sub.add_parser("shadow-swarm",help="Online-learning quant ensemble, research only")
     swarm.add_argument("--csv",action="append",required=True)
     swarm.add_argument("--out",default="artifacts/omega/shadow_swarm.json")
+    ff = sub.add_parser("forward-freeze",help="Freeze research models before ANY new outcomes; NO LIVE ORDERS")
+    ff.add_argument("--csv",action="append",required=True)
+    ff.add_argument("--state",default="private_data/forward/forward_experiment.json")
+    fs = sub.add_parser("forward-step",help="Observe precommitted paper intents and propose a future signal")
+    fs.add_argument("--csv",action="append",required=True)
+    fs.add_argument("--state",default="private_data/forward/forward_experiment.json")
+    fstatus = sub.add_parser("forward-status",help="Report immutable precommitted shadow experiment")
+    fstatus.add_argument("--state",default="private_data/forward/forward_experiment.json")
+    updater = sub.add_parser("data-update-coinbase",help="Append newly completed public candles without changing history")
+    updater.add_argument("--csv",required=True)
+    updater.add_argument("--interval-seconds",type=int,default=3600)
     args = p.parse_args(argv)
-    if args.cmd == "quant-portfolio":
+    if args.cmd in ("forward-freeze","forward-step","forward-status","data-update-coinbase"):
+        from .forward_lab import freeze_forward, advance_forward, status_forward
+        from .incremental import update_coinbase
+        if args.cmd == "forward-freeze":
+            result=freeze_forward(args.csv,args.state)
+        elif args.cmd == "forward-step":
+            result=advance_forward(args.csv,args.state)
+        elif args.cmd == "forward-status":
+            result=status_forward(args.state)
+        else:
+            result=update_coinbase(args.csv,interval_seconds=args.interval_seconds)
+        print(json.dumps(result,indent=2))
+    elif args.cmd == "quant-portfolio":
         agent=QuantAgent(args.agent,args.fast,args.slow)
         result=simulate_portfolio(load_universe(args.csv),agent)
         _save(args.out,{"status":"RESEARCH_ONLY_NO_LIVE_ORDERS","result":result.summary()})
