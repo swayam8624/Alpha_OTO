@@ -115,6 +115,12 @@ class ForwardLabTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Previously observed forward candle'):
             advance_forward(self.files,self.state,now=when+timedelta(minutes=1))
 
+    def test_clock_rollback_fails_closed(self):
+        self.freeze()
+        advance_forward(self.files,self.state,now=self.freeze_time+timedelta(minutes=3))
+        with self.assertRaisesRegex(ValueError,'clock moved backwards'):
+            advance_forward(self.files,self.state,now=self.freeze_time+timedelta(minutes=1))
+
     def test_stale_feed_wont_propose(self):
         self.freeze()
         x=advance_forward(self.files,self.state,now=self.freeze_time+timedelta(days=4))

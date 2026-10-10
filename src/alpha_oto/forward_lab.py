@@ -165,7 +165,7 @@ def freeze_forward(files:list[str], out:str, *, now=None, interval_seconds:int=3
                  'fees':0.,'fills':0,'peak':starting_cash,'max_drawdown':0.,
                  'halted':False,'last_mark':starting_cash} for name in names}
     state={'schema':VERSION,'safety':'RESEARCH_ONLY_NO_BROKER_ORDERS',
-           'created_at_utc':now.isoformat(),'interval_seconds':interval_seconds,
+           'created_at_utc':now.isoformat(),'last_step_utc':now.isoformat(),'interval_seconds':interval_seconds,
            'symbols':symbols,'risk':{'max_gross':config.max_gross,'max_asset':config.max_asset,
                'max_drawdown':config.max_drawdown,'side_fee_bps':config.side_fee_bps,
                'side_slippage_bps':config.side_slippage_bps,
@@ -264,6 +264,7 @@ def advance_forward(files:list[str], state_path:str, *, now=None):
         fcntl.flock(lock,fcntl.LOCK_EX)
         state=_load(path)
         if now < _parse(state['created_at_utc']):raise ValueError('Clock earlier than freeze')
+        if now < _parse(state['last_step_utc']):raise ValueError('Forward processing clock moved backwards')
         interval=state['interval_seconds'];dt=timedelta(seconds=interval)
         data=_validate_inputs(files,state,now=now)
         state['current_clock']=now.isoformat()
@@ -341,6 +342,7 @@ def advance_forward(files:list[str], state_path:str, *, now=None):
             else:
                 _event(state,'NO_INTENT_STALE_DATA',{'now':now.isoformat(),'next_open':target.isoformat()})
         state.pop('current_clock',None)
+        state['last_step_utc']=now.isoformat()
         _write(path,state)
         return status_forward(state,observed_new=updates,filled=filled,new_intent=proposed)
 
