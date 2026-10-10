@@ -19,3 +19,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.setuptools.package-data]
+alpha_oto = ["dashboard_static/*.html", "dashboard_static/*.css", "dashboard_static/*.js"]

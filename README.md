@@ -202,3 +202,22 @@ Trade's **public** read-only L2 feed, including connection-wide sequence
 verification and fail-closed quarantine. Use fresh SQLite and journal paths.
 No API key, broker account or live order capability is introduced. See
 [market-data protocol notes](docs/REALTIME_MARKET_DATA_V09.md).
+
+## New v1.0 — Private local web console
+
+The [one-command operator dashboard](docs/WEB_CONSOLE_V10.md) includes a browser
+interface for market data, strategy status, tests, simulated risk/broker checks,
+read-only Level 2 captures, background operation logs, hourly paper monitoring,
+and a guided account-readiness checklist. It runs with the Python standard
+library and binds only to 127.0.0.1.
+
+```bash
+cd "$HOME/Desktop/All Might/Alpha_OTO/Alpha_OTO"
+source .venv/bin/activate
+git pull --ff-only
+bash scripts/start_alpha_oto.sh
+```
+
+This is **PAPER ONLY**: selecting a broker does not establish credentials, KYC,
+funding, payments, regulatory approval, or authority to submit live orders.
+Never expose the local operator server publicly.
